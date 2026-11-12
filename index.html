@@ -191,6 +191,8 @@ fieldset.ch1 legend{color:#b08d00}fieldset.ch2 legend{color:#0a8fb0}
     <div class="board panel"><svg id="board" viewBox="0 0 660 435" role="img" aria-label="麵包板與儀器接線端子"></svg></div>
     <p id="hint" class="hint" aria-live="polite"></p>
 
+    <section class="panel" id="figwrap" hidden style="padding:10px 14px"><h2 style="margin-bottom:8px">本實驗電路圖</h2><div class="figs" id="figpanel"></div></section>
+
     <section class="panel" id="labpanel" aria-label="實驗題目">
       <header class="lab-h">
         <h2>實驗題目</h2>
@@ -1050,10 +1052,11 @@ const FREE_HTML=`<h3>自由實驗</h3>
 <p class="muted" id="freetip">上方「範例電路」只會放好電路,儀器還是要自己調。</p>`;
 function renderLab(){
   const n=LAB.cur;labbody.classList.remove('show-ans');setPressed($('labans'),false);
-  if(n===0){labbody.innerHTML=FREE_HTML;$('labnew').hidden=$('labans').hidden=true;LAB.P=null;return;}
+  if(n===0){labbody.innerHTML=FREE_HTML;$('figwrap').hidden=true;$('labnew').hidden=$('labans').hidden=true;LAB.P=null;return;}
   $('labnew').hidden=$('labans').hidden=false;
-  labbody.innerHTML=LABS[n].html(LAB.P);LABS[n].recalc(LAB.P);
+  labbody.innerHTML=LABS[n].html(LAB.P);LABS[n].recalc(LAB.P);showFigs();
 }
+function showFigs(){const fp=$('figpanel');fp.textContent='';labbody.querySelectorAll('figure.fig').forEach(f=>fp.appendChild(f));$('figwrap').hidden=!fp.children.length;}
 function newLab(clear){
   const n=LAB.cur;if(n===0)return;
   LAB.P=LABS[n].gen();
