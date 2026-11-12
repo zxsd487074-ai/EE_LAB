@@ -8,17 +8,18 @@
   --accent:#0a7c76; --accent-fg:#ffffff; --ok:#1c8f4f; --bad:#d23f3f; --warn:#b7791f;
   --board:#e9e5d7; --board-edge:#b9b39d; --groove:#cfc9b6; --hole:#3b3f45; --hole-hi:#f0a800;
   --rail-p:#d64545; --rail-n:#3b6fd6; --metal:#9aa0a6; --lbl:#3a352a;
+  --sw:#2563eb; --sr:#d9730d; --sd:#d62839; --ss:#7c3aed; --so:#0d9488; --sg:#6b7280;
   --screen:#06100c; --seg:#7dff9a; --seg-bg:#0a1511;
   --font:'IBM Plex Sans','Noto Sans TC',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f1317; --panel:#171c21; --panel-2:#1e252b; --line:#2b343c; --fg:#e3e8ec; --muted:#8f9ba6;
   --accent:#3cc4bb; --accent-fg:#06201e; --ok:#3ccf7a; --bad:#ff6b6b; --warn:#e0a84a;
-  --board:#d8d3c2; --board-edge:#8f8a76; --groove:#bfb9a5; color-scheme:dark;}}
+  --sw:#6ea8ff; --sr:#ffb454; --sd:#ff6b78; --ss:#b794f6; --so:#4fd1c5; --sg:#9aa3ad; --board:#d8d3c2; --board-edge:#8f8a76; --groove:#bfb9a5; color-scheme:dark;}}
 :root[data-theme="dark"]{
   --bg:#0f1317; --panel:#171c21; --panel-2:#1e252b; --line:#2b343c; --fg:#e3e8ec; --muted:#8f9ba6;
   --accent:#3cc4bb; --accent-fg:#06201e; --ok:#3ccf7a; --bad:#ff6b6b; --warn:#e0a84a;
-  --board:#d8d3c2; --board-edge:#8f8a76; --groove:#bfb9a5; color-scheme:dark;}
+  --sw:#6ea8ff; --sr:#ffb454; --sd:#ff6b78; --ss:#b794f6; --so:#4fd1c5; --sg:#9aa3ad; --board:#d8d3c2; --board-edge:#8f8a76; --groove:#bfb9a5; color-scheme:dark;}
 
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);
@@ -106,7 +107,14 @@ details.peek summary{cursor:pointer;font-weight:600;font-size:13px}
 .fig figcaption{font-size:12px;color:var(--muted)}
 .sch{width:100%;max-width:400px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:4px}
 .sch path,.sch circle{stroke:var(--fg);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.sch circle.dot{fill:var(--fg)}
+.sch .w{stroke:var(--sw)}
+.sch circle.dot{fill:var(--sw);stroke:none}
+.sch .r path{stroke:var(--sr);stroke-width:2}
+.sch .d path{stroke:var(--sd);stroke-width:2}
+.sch .s{stroke:var(--ss);stroke-width:2}
+.sch .o{stroke:var(--so);stroke-width:2}
+.sch .g{stroke:var(--sg);stroke-width:2}
+.sch .lab{fill:var(--ss);font-weight:600}
 .sch text{fill:var(--fg);font:11px var(--mono)}
 .figs{display:flex;flex-wrap:wrap;gap:10px}
 
@@ -792,16 +800,16 @@ function plot(cv,o){
 
 /* ----- 電路圖(內嵌 SVG) ----- */
 const sch=(w,h,body,cap)=>`<figure class="fig"><svg class="sch" viewBox="0 0 ${w} ${h}" role="img" aria-label="${cap}">${body}</svg><figcaption>${cap}</figcaption></figure>`;
-const PL=pts=>`<path d="M${pts.map(p=>p.join(' ')).join('L')}"/>`;
-const RES=(x,y,v)=>`<g transform="translate(${x} ${y})${v?' rotate(90)':''}"><path d="M0 0h6l3-6 6 12 6-12 6 12 6-12 3 6h6"/></g>`;
-const LEDs=(x,y,rot)=>`<g transform="translate(${x} ${y}) rotate(${rot})"><path d="M0 0h6M18 0h6M18-7v14M6-7v14l12-7zM9-9l5-6M14-8l5-6"/></g>`;
+const PL=pts=>`<path class="w" d="M${pts.map(p=>p.join(' ')).join('L')}"/>`;
+const RES=(x,y,v)=>`<g class="r" transform="translate(${x} ${y})${v?' rotate(90)':''}"><path d="M0 0h6l3-6 6 12 6-12 6 12 6-12 3 6h6"/></g>`;
+const LEDs=(x,y,rot)=>`<g class="d" transform="translate(${x} ${y}) rotate(${rot})"><path d="M0 0h6M18 0h6M18-7v14M6-7v14l12-7zM9-9l5-6M14-8l5-6"/></g>`;
 const TX=(x,y,t,a='middle')=>`<text x="${x}" y="${y}" text-anchor="${a}">${t}</text>`;
 const DOT=(x,y)=>`<circle class="dot" cx="${x}" cy="${y}" r="2.6"/>`;
-const GNDs=(x,y)=>`<path d="M${x} ${y}v5M${x-8} ${y+5}h16M${x-5} ${y+9}h10M${x-2} ${y+13}h4"/>`;
-const DCs=(x,y,t)=>`<circle cx="${x}" cy="${y}" r="12"/>${TX(x,y+4,'+')}${t?TX(x-17,y+4,t,'end'):''}`;
-const ACs=(x,y,t)=>`<circle cx="${x}" cy="${y}" r="12"/><path d="M${x-7} ${y}q3.5-8 7 0t7 0"/>${t?TX(x-17,y+4,t,'end'):''}`;
-const OPA=(x,y)=>`<path d="M${x} ${y-30}v60l60-30z"/>${TX(x+4,y-11,'−','start')}${TX(x+4,y+19,'+','start')}`;
-const TERM_=(x,y)=>`<circle cx="${x}" cy="${y}" r="3"/>`;
+const GNDs=(x,y)=>`<path class="g" d="M${x} ${y}v5M${x-8} ${y+5}h16M${x-5} ${y+9}h10M${x-2} ${y+13}h4"/>`;
+const DCs=(x,y,t)=>`<circle class="s" cx="${x}" cy="${y}" r="12"/>${TX(x,y+4,'+')}${t?`<text class="lab" x="${x-17}" y="${y+4}" text-anchor="end">${t}</text>`:''}`;
+const ACs=(x,y,t)=>`<circle class="s" cx="${x}" cy="${y}" r="12"/><path class="s" d="M${x-7} ${y}q3.5-8 7 0t7 0"/>${t?`<text class="lab" x="${x-17}" y="${y+4}" text-anchor="end">${t}</text>`:''}`;
+const OPA=(x,y)=>`<path class="o" d="M${x} ${y-30}v60l60-30z"/>${TX(x+4,y-11,'−','start')}${TX(x+4,y+19,'+','start')}`;
+const TERM_=(x,y)=>`<circle class="w" cx="${x}" cy="${y}" r="3"/>`;
 const FIG={
  l1:()=>sch(360,100,TERM_(10,50)+PL([[13,50],[30,50]])+RES(30,50)+TX(48,38,'R1')+PL([[66,50],[84,50]])+RES(84,50)+TX(102,38,'R2')+PL([[120,50],[138,50]])+RES(138,50)+TX(156,38,'R3')+PL([[174,50],[192,50]])+TERM_(195,50)+TX(102,82,'串聯:量兩端總電阻')
    +PL([[250,20],[250,80]])+PL([[330,20],[330,80]])+[20,50,80].map((y,i)=>PL([[250,y],[272,y]])+RES(272,y)+TX(290,y-8,'R'+(i+1))+PL([[308,y],[330,y]])).join('')
@@ -820,7 +828,7 @@ const FIG={
  l4b:()=>sch(210,130,ACs(40,70,'VG1')+PL([[40,58],[40,20],[70,20]])+DOT(58,20)+TX(58,10,'VF1')+LEDs(70,20,0)+TX(82,38,'LED')+PL([[94,20],[130,20]])+DOT(130,20)+TX(136,16,'VF2','start')
    +RES(130,20,1)+TX(140,42,'R1 220','start')+PL([[130,56],[130,110],[40,110],[40,82]])+GNDs(85,110),'4-5-2:半波整流'),
  l4c:()=>sch(210,140,ACs(40,76,'VG1')+PL([[40,64],[40,40],[60,40]])+DOT(60,40)+TX(58,32,'VF1','end')+PL([[60,40],[60,18],[70,18]])+LEDs(70,18,0)+PL([[94,18],[130,18],[130,40]])
-   +PL([[60,40],[60,62],[70,62]])+`<g transform="translate(94 62) rotate(180)"><path d="M0 0h6M18 0h6M18-7v14M6-7v14l12-7zM9-9l5-6M14-8l5-6"/></g>`+PL([[94,62],[130,62],[130,40]])+DOT(130,40)+TX(136,38,'VF2','start')
+   +PL([[60,40],[60,62],[70,62]])+`<g class="d" transform="translate(94 62) rotate(180)"><path d="M0 0h6M18 0h6M18-7v14M6-7v14l12-7zM9-9l5-6M14-8l5-6"/></g>`+PL([[94,62],[130,62],[130,40]])+DOT(130,40)+TX(136,38,'VF2','start')
    +TX(82,8,'LED2')+TX(82,80,'LED1')+RES(130,40,1)+TX(140,64,'R1 330','start')+PL([[130,76],[130,120],[40,120],[40,88]])+GNDs(85,120),'4-5-3:兩顆 LED 反向並聯'),
  l5a:P=>sch(320,150,PL([[40,12],[40,12]])+TX(40,10,'+5V')+RES(40,14,1)+TX(48,36,'R1 '+fmtOhm(P.r1),'start')+PL([[40,50],[40,64]])+DOT(40,64)+RES(40,64,1)+TX(48,92,'R2 '+fmtOhm(P.r2),'start')+PL([[40,100],[40,104]])+GNDs(40,104)
    +PL([[40,64],[110,64]])+TX(75,58,'VR')+OPA(110,79)+TX(140,48,'+5V')+TX(140,128,'GND')+PL([[85,94],[110,94]])+PL([[85,94],[85,118]])+ACs(85,130,'VG1')+PL([[85,142],[85,146]])+GNDs(85,146)
