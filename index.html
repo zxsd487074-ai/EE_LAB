@@ -100,6 +100,16 @@ input[type=number]{width:84px}
 details.peek{padding:8px 12px}
 details.peek summary{cursor:pointer;font-weight:600;font-size:13px}
 
+
+/* 電路圖 */
+.fig{margin:0;display:flex;flex-direction:column;gap:2px}
+.fig figcaption{font-size:12px;color:var(--muted)}
+.sch{width:100%;max-width:400px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:4px}
+.sch path,.sch circle{stroke:var(--fg);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.sch circle.dot{fill:var(--fg)}
+.sch text{fill:var(--fg);font:11px var(--mono)}
+.figs{display:flex;flex-wrap:wrap;gap:10px}
+
 /* 讀數表 */
 .tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;margin-top:6px}
 .tbl th{font-weight:500;color:var(--muted);text-align:left;font-size:12px;padding:4px 8px 4px 0;border-bottom:1px solid var(--line)}
@@ -777,6 +787,52 @@ function plot(cv,o){
   let lx=L+6;g.textAlign='left';for(const s of o.series){if(!s.name)continue;g.fillStyle=s.c;g.fillText(s.name,lx,T+10);lx+=g.measureText(s.name).width+12;}
 }
 
+
+/* ----- 電路圖(內嵌 SVG) ----- */
+const sch=(w,h,body,cap)=>`<figure class="fig"><svg class="sch" viewBox="0 0 ${w} ${h}" role="img" aria-label="${cap}">${body}</svg><figcaption>${cap}</figcaption></figure>`;
+const PL=pts=>`<path d="M${pts.map(p=>p.join(' ')).join('L')}"/>`;
+const RES=(x,y,v)=>`<g transform="translate(${x} ${y})${v?' rotate(90)':''}"><path d="M0 0h6l3-6 6 12 6-12 6 12 6-12 3 6h6"/></g>`;
+const LEDs=(x,y,rot)=>`<g transform="translate(${x} ${y}) rotate(${rot})"><path d="M0 0h6M18 0h6M18-7v14M6-7v14l12-7zM9-9l5-6M14-8l5-6"/></g>`;
+const TX=(x,y,t,a='middle')=>`<text x="${x}" y="${y}" text-anchor="${a}">${t}</text>`;
+const DOT=(x,y)=>`<circle class="dot" cx="${x}" cy="${y}" r="2.6"/>`;
+const GNDs=(x,y)=>`<path d="M${x} ${y}v5M${x-8} ${y+5}h16M${x-5} ${y+9}h10M${x-2} ${y+13}h4"/>`;
+const DCs=(x,y,t)=>`<circle cx="${x}" cy="${y}" r="12"/>${TX(x,y+4,'+')}${t?TX(x-17,y+4,t,'end'):''}`;
+const ACs=(x,y,t)=>`<circle cx="${x}" cy="${y}" r="12"/><path d="M${x-7} ${y}q3.5-8 7 0t7 0"/>${t?TX(x-17,y+4,t,'end'):''}`;
+const OPA=(x,y)=>`<path d="M${x} ${y-30}v60l60-30z"/>${TX(x+4,y-11,'−','start')}${TX(x+4,y+19,'+','start')}`;
+const TERM_=(x,y)=>`<circle cx="${x}" cy="${y}" r="3"/>`;
+const FIG={
+ l1:()=>sch(360,100,TERM_(10,50)+PL([[13,50],[30,50]])+RES(30,50)+TX(48,38,'R1')+PL([[66,50],[84,50]])+RES(84,50)+TX(102,38,'R2')+PL([[120,50],[138,50]])+RES(138,50)+TX(156,38,'R3')+PL([[174,50],[192,50]])+TERM_(195,50)+TX(102,82,'串聯:量兩端總電阻')
+   +PL([[250,20],[250,80]])+PL([[330,20],[330,80]])+[20,50,80].map((y,i)=>PL([[250,y],[272,y]])+RES(272,y)+TX(290,y-8,'R'+(i+1))+PL([[308,y],[330,y]])).join('')
+   +DOT(250,50)+PL([[250,50],[238,50]])+TERM_(235,50)+DOT(330,50)+PL([[330,50],[342,50]])+TERM_(345,50)+TX(290,98,'並聯'),'三顆電阻的串聯與並聯量測'),
+ l2:()=>sch(260,130,DCs(40,70,'Vs')+PL([[40,58],[40,24],[70,24]])+RES(70,24)+TX(88,12,'Rs')+PL([[106,24],[170,24]])+DOT(170,24)+TX(138,16,'Ii →')
+   +RES(170,24,1)+TX(180,46,'Ri','start')+PL([[170,60],[170,116],[40,116],[40,82]])+`<path d="M200 26V114" stroke-dasharray="3 3"/>`+TX(206,74,'Vi','start')+TX(206,34,'+','start')
+   +`<path d="M12 6H140V126H12Z" stroke-dasharray="4 3"/>`+TX(76,108,'電源 + 輸出阻抗'),'阻抗匹配:電源(Vs、Rs)接負載 Ri'),
+ l3:P=>sch(300,160,DCs(40,90,'V1')+PL([[40,78],[40,30],[60,30]])+RES(60,30)+TX(78,20,'R1 '+P.R[0])+PL([[96,30],[250,30]])+DOT(130,30)+TX(136,24,'VF1','start')
+   +RES(130,30,1)+TX(124,52,'R2 '+P.R[1],'end')+PL([[130,66],[130,80]])+DOT(130,80)+TX(124,90,'VF2','end')
+   +RES(250,30,1)+TX(256,52,'R3 '+P.R[2],'start')+PL([[250,66],[250,80]])+DOT(250,80)+TX(256,78,'VF3','start')
+   +PL([[130,80],[160,80]])+RES(160,80)+TX(178,72,'R4 '+P.R[3])+PL([[196,80],[250,80]])
+   +RES(130,80,1)+TX(124,102,'R5 '+P.R[4],'end')+PL([[130,116],[130,130]])+RES(250,80,1)+TX(256,102,'R6 '+P.R[5],'start')+PL([[250,116],[250,130]])
+   +PL([[250,130],[96,130]])+DOT(190,130)+TX(190,122,'VF4')+RES(60,130)+TX(78,150,'R7 '+P.R[6])+PL([[60,130],[40,130],[40,102]]),'實驗三的電阻電路(電流由 V1 的 + 端流出)'),
+ l4a:()=>sch(210,120,DCs(40,60,'VDC')+PL([[40,48],[40,20],[70,20]])+RES(70,20)+TX(88,10,'Rs')+PL([[106,20],[150,20]])+LEDs(150,20,90)+TX(162,38,'LED','start')+TX(164,52,'Vf','start')
+   +PL([[150,44],[150,100],[40,100],[40,72]])+GNDs(95,100),'4-5-1:直流驅動 LED(陽極在上)'),
+ l4b:()=>sch(210,130,ACs(40,70,'VG1')+PL([[40,58],[40,20],[70,20]])+DOT(58,20)+TX(58,10,'VF1')+LEDs(70,20,0)+TX(82,38,'LED')+PL([[94,20],[130,20]])+DOT(130,20)+TX(136,16,'VF2','start')
+   +RES(130,20,1)+TX(140,42,'R1 220','start')+PL([[130,56],[130,110],[40,110],[40,82]])+GNDs(85,110),'4-5-2:半波整流'),
+ l4c:()=>sch(210,140,ACs(40,76,'VG1')+PL([[40,64],[40,40],[60,40]])+DOT(60,40)+TX(58,32,'VF1','end')+PL([[60,40],[60,18],[70,18]])+LEDs(70,18,0)+PL([[94,18],[130,18],[130,40]])
+   +PL([[60,40],[60,62],[70,62]])+`<g transform="translate(94 62) rotate(180)"><path d="M0 0h6M18 0h6M18-7v14M6-7v14l12-7zM9-9l5-6M14-8l5-6"/></g>`+PL([[94,62],[130,62],[130,40]])+DOT(130,40)+TX(136,38,'VF2','start')
+   +TX(82,8,'LED2')+TX(82,80,'LED1')+RES(130,40,1)+TX(140,64,'R1 330','start')+PL([[130,76],[130,120],[40,120],[40,88]])+GNDs(85,120),'4-5-3:兩顆 LED 反向並聯'),
+ l5a:P=>sch(320,150,PL([[40,12],[40,12]])+TX(40,10,'+5V')+RES(40,14,1)+TX(48,36,'R1 '+fmtOhm(P.r1),'start')+PL([[40,50],[40,64]])+DOT(40,64)+RES(40,64,1)+TX(48,92,'R2 '+fmtOhm(P.r2),'start')+PL([[40,100],[40,104]])+GNDs(40,104)
+   +PL([[40,64],[110,64]])+TX(75,58,'VR')+OPA(110,79)+TX(140,48,'+5V')+TX(140,128,'GND')+PL([[85,94],[110,94]])+PL([[85,94],[85,118]])+ACs(85,130,'VG1')+PL([[85,142],[85,146]])+GNDs(85,146)
+   +DOT(95,94)+TX(70,112,'VF1','end')+PL([[170,79],[200,79]])+DOT(185,79)+TX(185,72,'VF2')+RES(200,79)+TX(218,69,'390')+PL([[236,79],[262,79]])+LEDs(262,79,90)+TX(274,100,'LED','start')+PL([[262,103],[262,130]])+GNDs(262,130),'5.5.1:單一比較器(+ 輸入接訊號,− 輸入接分壓參考)'),
+ l5b:()=>{let b=TX(40,8,'+5V')+TX(76,206,'每顆 10k','end');b+=PL([[40,10],[40,10]]);
+   const R5=[10,46,82,118,154];for(let i=0;i<5;i++)b+=RES(40,R5[i],1);
+   b+=PL([[40,190],[40,194]])+GNDs(40,194);
+   const taps=[46,82,118,154],rows=[34,84,134,184],lab=['4V','3V','2V','1V'];
+   taps.forEach((ty,i)=>{const y=rows[i],x=62+i*12;b+=DOT(40,ty)+PL([[40,ty],[x,ty],[x,y-15],[150,y-15]])+TX(34,ty+4,lab[i],'end')+OPA(150,y).replace('v60l60','v60l60')+PL([[150,y+15],[126,y+15]])
+     +PL([[210,y],[226,y]])+RES(226,y)+TX(244,y-8,'330')+PL([[262,y],[280,y]])+LEDs(280,y,90)+PL([[280,y+24],[280,y+30]])+GNDs(280,y+30);});
+   b+=PL([[126,49],[126,205]])+PL([[126,205],[126,214]])+ACs(126,226,'VG1')+GNDs(126,238);
+   return sch(330,256,b.replace(/<text x="40" y="8"/,'<text x="46" y="8"'),'5.5.2:四個比較器的四段 LED 顯示(參考電壓 1 V、2 V、3 V、4 V)');}
+};
+
 /* ----- 實驗一 ----- */
 const LAB1={
   gen(){return {nom:rnd([1000,1500,2200,3300,3900,4700,5100,6800,8200,9100,10000,47000,100000]),tol:rnd([5,5,1]),q:{val:rnd(RVALS),tol:rnd([5,1])}};},
@@ -789,7 +845,7 @@ const LAB1={
   <h4>B. 量測電阻</h4>
   <ol><li>在工具列選「電阻」,阻值 <b>${fmtOhm(P.nom)}</b>、誤差 <b>±${P.tol}%</b>,在麵包板放 3 顆。每顆的實際阻值都不同。</li>
   <li>三用電表轉到「電阻 Ω」,用跳線把 COM、V/Ω/mA 接到電阻兩端,把讀值填進表格。</li>
-  <li>把 3 顆串聯、再並聯,各量一次總電阻。</li></ol>
+  <li>把 3 顆串聯、再並聯,各量一次總電阻。</li></ol>${FIG.l1()}
   <div class="wrapx"><table class="ltbl"><thead><tr><th></th><th>讀值(Ω)</th><th>量測值(Ω)</th><th>誤差值(Ω)</th><th>誤差(%)</th><th>可承受電流(A)</th><th>可承受電壓(V)</th><th>範圍內?</th></tr></thead><tbody>
   ${['電阻 1','電阻 2','電阻 3','串聯','並聯'].map((n,i)=>`<tr><td>${n}</td><td>${f3([P.nom,P.nom,P.nom,3*P.nom,P.nom/3][i])}</td><td>${IN('m'+i)}</td><td>${OUT('e'+i)}</td><td>${OUT('p'+i)}</td><td>${OUT('i'+i)}</td><td>${OUT('v'+i)}</td><td>${ANS('c'+i)}</td></tr>`).join('')}
   </tbody></table></div>
@@ -823,7 +879,7 @@ const LAB2={
   <ol><li>電源供應器設為 <b>Vs = ${P.vs} V</b>,電流限制設 0.2 A,先不要開輸出。</li>
   <li>放一顆 <b>Rs = ${fmtOhm(P.rs)}</b>(誤差 ±5%)當作電源的輸出阻抗,Ri 接在它後面再回到電源 −。Ri 可以用兩顆電阻串接湊近指定值。</li>
   <li>開啟輸出。用三用電表量 Vs、Rs(Ω 檔要關閉電源)、Ri(Ω 檔)、Vi(並聯在 Ri 兩端)和 Ii(串聯進電路,用直流電流檔)。</li></ol>
-  <p><button type="button" data-act="ref">載入參考接線</button> <span class="muted">(放好 Rs 與 Ri,Ri 先設成和 Rs 一樣)</span></p>
+  ${FIG.l2()}<p><button type="button" data-act="ref">載入參考接線</button> <span class="muted">(放好 Rs 與 Ri,Ri 先設成和 Rs 一樣)</span></p>
   <div class="row2"><label>Vs 實測 (V) ${IN('vs')}</label><label>Rs 實測 (Ω) ${IN('rs')}</label><span>Is = <b data-o="is">—</b> mA;Ps = <b data-o="ps">—</b> W</span></div>
   <div class="wrapx"><table class="ltbl"><thead><tr><th>Ri/Rs</th><th>Ri 理想值(Ω)</th><th>Ri 實測值(Ω)</th><th>Vi (V)</th><th>Ii (mA)</th><th>Vi/Vs</th><th>Ii/Is</th><th>Pi/Ps</th><th>理論值</th></tr></thead><tbody>
   ${RAT.map((r,i)=>`<tr><td>${r}</td><td>${f3(r*P.rs)}</td><td>${IN('ri'+i)}</td><td>${IN('vi'+i)}</td><td>${IN('ii'+i)}</td><td>${OUT('a'+i)}</td><td>${OUT('b'+i)}</td><td>${OUT('c'+i)}</td><td>${ANS('t'+i)}</td></tr>`).join('')}</tbody></table></div>
@@ -868,7 +924,7 @@ const LAB3={
   <p class="muted">目的:電阻網路的模擬、計算與量測;了解量測的準確度、誤差,以及儀器與元件都有誤差。</p>
   <h4>A. 電阻電路</h4>
   <p>電路:V1 = <b>${P.V} V</b>,R1 接 V+ 到 VF1;R2 從 VF1 到 VF2;R3 從 VF1 到 VF3;R4 接在 VF2、VF3 之間;R5 從 VF2 到 VF4;R6 從 VF3 到 VF4;R7 從 VF4 回到 V−。電阻值如下表。接好後依序量電阻、各點電壓和各電阻電流,功率用 P = I²R 計算。</p>
-  <p><button type="button" data-act="ref">載入參考接線</button> <span class="muted">(想自己練習接線的話不要按)</span></p>
+  ${FIG.l3(P)}<p><button type="button" data-act="ref">載入參考接線</button> <span class="muted">(想自己練習接線的話不要按)</span></p>
   <div class="wrapx"><table class="ltbl"><thead><tr><th></th><th>設定值(Ω)</th><th>量測值(Ω)</th><th>電流模擬(mA)</th><th>電流量測(mA)</th><th>功率模擬(mW)</th><th>功率計算(mW)</th></tr></thead><tbody>
   ${P.R.map((r,i)=>`<tr><td>R${i+1}</td><td>${r}</td><td>${IN('r'+i)}</td><td>${ANS('si'+i)}</td><td>${IN('i'+i)}</td><td>${ANS('sp'+i)}</td><td>${OUT('p'+i)}</td></tr>`).join('')}</tbody></table></div>
   <div class="wrapx"><table class="ltbl"><thead><tr><th>節點</th><th>模擬值(V)</th><th>量測值(V)</th></tr></thead><tbody>
@@ -912,17 +968,17 @@ const LAB4={
   <h4>4-5-1 LED 特性量測(直流驅動)</h4>
   <ol><li>電源供應器設為 <b>5 V</b>、電流限制 0.1 A。</li><li>放一顆 <b>${LEDC[P.col].n}色 LED</b> 與下表的限流電阻 Rs 串聯,陽極接 Rs 那端。</li>
   <li>用電表量 LED 兩端的 Vf,填入表格。If、功率會自動計算。</li></ol>
-  <p><button type="button" data-act="ref" data-arg="a">載入參考接線</button></p>
+  ${FIG.l4a()}<p><button type="button" data-act="ref" data-arg="a">載入參考接線</button></p>
   <div class="wrapx"><table class="ltbl"><thead><tr><th>Rs(Ω)</th><th>Vf 實測(V)</th><th>If (mA)</th><th>P_LED (mW)</th><th>P_Rs (mW)</th><th>模擬 Vf (V)</th></tr></thead><tbody>
   ${RS4.map((r,i)=>`<tr><td>${r}</td><td>${IN('vf'+i)}</td><td>${OUT('if'+i)}</td><td>${OUT('pl'+i)}</td><td>${OUT('pr'+i)}</td><td>${ANS('sv'+i)}</td></tr>`).join('')}</tbody></table></div>
   <canvas class="chart" id="chart4" aria-label="LED 的 Vf 對 If 關係圖"></canvas>
   <h4>4-5-2 半波整流</h4>
   <p>訊號產生器:<b>${WN[P.wave]}</b>、f = 1 Hz、Vpp = 10 V(偏移 0)。電路:訊號 → LED → R1(220 Ω)→ GND。示波器 CH1 量 VF1(LED 前),CH2 量 VF2(R1 上),把 T/div 調到看得到一個完整週期。</p>
-  <p><button type="button" data-act="ref" data-arg="b">載入參考接線</button></p>
+  ${FIG.l4b()}<p><button type="button" data-act="ref" data-arg="b">載入參考接線</button></p>
   <p>VF2 峰對峰 = ${IN('b')} V <span class="muted">(從示波器螢幕讀)</span> 模擬值 ${ANS('sb')} <span data-o="cb"></span></p>
   <h4>4-5-3 兩顆 LED 反向並聯</h4>
   <p>訊號源設定同上,R1 換成 330 Ω,兩顆 LED 反向並聯。</p>
-  <p><button type="button" data-act="ref" data-arg="c">載入參考接線</button></p>
+  ${FIG.l4c()}<p><button type="button" data-act="ref" data-arg="c">載入參考接線</button></p>
   <p>VF2 峰對峰 = ${IN('c')} V 模擬值 ${ANS('sc')} <span data-o="cc"></span></p>
   <p class="ans">說明:正弦波的電壓要超過 LED 導通電壓才會有電流,所以亮的時間比方波短;方波幾乎一半時間導通;三角波介於兩者之間。反向並聯時,正負半週各有一顆 LED 導通,所以兩半週都會亮。</p>`;},
   recalc(P){
@@ -965,14 +1021,14 @@ const LAB5={
   <li>用 R1 = <b>${fmtOhm(P.r1)}</b>、R2 = <b>${fmtOhm(P.r2)}</b> 把 5 V 分壓,接到運算放大器 1 的負輸入(腳 2)當參考電壓 VR。</li>
   <li>訊號產生器設為正弦波、<b>f = ${P.f} Hz、Vpp = ${P.vpp} V、偏移 = ${P.off} V</b>,接到正輸入(腳 3)。</li>
   <li>輸出(腳 1)串聯 390 Ω 與 LED 到 GND。示波器 CH1 量輸入、CH2 量輸出,調整 T/div、V/div 與觸發,看到穩定的波形。</li></ol>
-  <p><button type="button" data-act="ref" data-arg="a">載入參考接線</button></p>
+  ${FIG.l5a(P)}<p><button type="button" data-act="ref" data-arg="a">載入參考接線</button></p>
   <div class="row2"><label>VR 實測 (V) ${IN('vr')}</label><label>輸出高電位 (V) ${IN('hi')}</label><label>輸出低電位 (V) ${IN('lo')}</label><label>輸出為高電位的時間 (%) ${IN('du')}</label></div>
   <p class="ans">模擬值:VR ≈ ${f3(P.vref)} V;高電位 ${f3(P.hi)} V;低電位 ${f3(P.lo)} V;高電位時間約 ${f3(P.duty,3)} %。<span data-o="c1"></span></p>
   <h4>5.5.2 四段 LED 顯示</h4>
   <ol><li>5 個 10 kΩ 電阻從 +5 V 串到 GND,分出 1 V、2 V、3 V、4 V,分別接到四個比較器的負輸入。</li>
   <li>四個正輸入都接訊號產生器;每個輸出串聯 330 Ω 接 LED 到 GND。</li>
   <li>先把訊號產生器設成<b>振幅 0 V、偏移 ${P.lvl} V</b>(直流),觀察亮幾顆 LED。再改成三角波 0–5 V(Vpp 5、偏移 2.5)、1 Hz,用示波器比較輸入與各輸出。</li></ol>
-  <p><button type="button" data-act="ref" data-arg="b">載入參考接線</button> <span class="muted">(這個電路零件很多,可以先載入再研究接線)</span></p>
+  ${FIG.l5b()}<p><button type="button" data-act="ref" data-arg="b">載入參考接線</button> <span class="muted">(這個電路零件很多,可以先載入再研究接線)</span></p>
   <p>偏移 ${P.lvl} V 時,亮的 LED 有 ${IN('lit')} 顆 <span class="ans">答案:${P.lit} 顆</span> <span data-o="c2"></span></p>
   <p class="muted">討論:輸入電壓升高時,亮燈數為何會增加?輸出高電位為什麼不是 5 V?</p>`;},
   recalc(P){
