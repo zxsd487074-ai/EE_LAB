@@ -199,7 +199,7 @@ fieldset.ch1 legend{color:#b08d00}fieldset.ch2 legend{color:#0a8fb0}
     <div class="board panel"><svg id="board" viewBox="0 0 660 435" role="img" aria-label="麵包板與儀器接線端子"></svg></div>
     <p id="hint" class="hint" aria-live="polite"></p>
 
-    <section class="panel" id="figwrap" hidden style="padding:10px 14px"><h2 style="margin-bottom:8px">本實驗電路圖</h2><div class="figs" id="figpanel"></div></section>
+    <section class="panel" id="figwrap" hidden style="padding:10px 14px"><h2 style="margin-bottom:8px">本實驗電路圖</h2><div class="figs" id="figpanel"></div><div id="guidebox" hidden style="margin-top:10px"><h2 style="margin-bottom:4px">接線步驟(麵包板上的半透明零件)</h2><ol id="guidelist" style="margin:0;padding-left:20px"></ol><button type="button" id="guideoff" style="margin-top:6px">關閉接法提示</button></div></section>
 
     <section class="panel" id="labpanel" aria-label="實驗題目">
       <header class="lab-h">
@@ -378,7 +378,7 @@ for(const [name,posts] of GROUPS){
 }
 el('path',{d:'M240 54 V80 H410 V54',class:'com'},svg);
 {const t=el('text',{x:325,y:83.5,class:'tlabel'},svg);t.textContent='GND 於儀器內部共地';t.setAttribute('style','paint-order:stroke;stroke:var(--bg);stroke-width:5px');}
-const gParts=el('g',{},svg),gOver=el('g',{},svg);
+const gGuide=el('g',{opacity:.5,'pointer-events':'none'},svg),gParts=el('g',{},svg),gOver=el('g',{},svg);
 const ring=el('circle',{r:8,class:'ring',visibility:'hidden'},gOver);
 const ghost=el('path',{class:'ghost',visibility:'hidden'},gOver);
 
@@ -386,7 +386,8 @@ const ghost=el('path',{class:'ghost',visibility:'hidden'},gOver);
 const wireCtrl=(A,B)=>{const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy)||1,arc=Math.min(26,6+len*0.18),mx=(A.x+B.x)/2,my=(A.y+B.y)/2;
   let cx=mx-dy/len*arc,cy=my+dx/len*arc;if(cy>my){cx=mx+dy/len*arc;cy=my-dx/len*arc;}return {cx,cy};};
 const ledEls=new Map();
-const labelOf=p=>({R:'R',LED:'D',IC:'U'}[p.type])+(S.parts.filter(q=>q.type===p.type).indexOf(p)+1);
+let guide=null;
+const labelOf=p=>{const L=S.parts.includes(p)?S.parts:(guide||[]);return ({R:'R',LED:'D',IC:'U'}[p.type])+(L.filter(q=>q.type===p.type).indexOf(p)+1);};
 const icPin=(p,n)=>n<=7?`B${p.col+n-1}`:`T${p.col+(14-n)}`;
 function drawIC(p,g){
   const x1=colX(p.col)-9,x2=colX(p.col+6)+9;
@@ -397,8 +398,8 @@ function drawIC(p,g){
   for(let k=0;k<7;k++){const x=colX(p.col+k);el('text',{x,y:271,class:'icpin'},g).textContent=k+1;el('text',{x,y:264.6,class:'icpin'},g).textContent=14-k;}
   el('text',{x:(x1+x2)/2,y:268.6,fill:'#ddd','text-anchor':'middle',style:'font:600 7px IBM Plex Mono,monospace'},g).textContent='LM324';
 }
-function drawPart(p){
-  const g=el('g',{},gParts);
+function drawPart(p,par=gParts){
+  const g=el('g',{},par);
   if(p.type==='IC'){drawIC(p,g);return;}
   const A=points[p.a],B=points[p.b];
   if(p.type==='W'){const {cx,cy}=wireCtrl(A,B);const d=`M${A.x} ${A.y} Q${cx} ${cy} ${B.x} ${B.y}`;
@@ -420,14 +421,14 @@ function drawPart(p){
     el('circle',{cx:-2.5,cy:-3,r:2,fill:'#fff',opacity:.45},b);
     el('line',{x1:8.5,y1:-7,x2:8.5,y2:7,stroke:'#222','stroke-width':2.4},b);
     if(p.burned)el('path',{d:'M-5 -5 L5 5 M5 -5 L-5 5',stroke:'#ff6b6b','stroke-width':2},b);
-    ledEls.set(p.id,{glow,dome,c:L.c,burned:p.burned});
+    if(par===gParts)ledEls.set(p.id,{glow,dome,c:L.c,burned:p.burned});
     const t=el('text',{x:mx,y:my-14,class:'lbl'},g);t.textContent=labelOf(p)+' '+L.n+'LED';
   }
   for(const q of [A,B])el('circle',{cx:q.x,cy:q.y,r:2.2,class:'pin'},g);
 }
 function renderParts(){
   gParts.textContent='';ledEls.clear();
-  S.parts.filter(p=>p.type!=='W').forEach(drawPart);S.parts.filter(p=>p.type==='W').forEach(drawPart);
+  S.parts.filter(p=>p.type!=='W').forEach(p=>drawPart(p));S.parts.filter(p=>p.type==='W').forEach(p=>drawPart(p));
   if(R)for(const [id] of ledEls){const d=R.led.get(id);setBright(id,d?bright(d.imean):0);}
 }
 const bright=i=>i<5e-5?0:Math.min(1,Math.pow(i/0.015,0.6));
@@ -773,7 +774,7 @@ const near=(v,e,rel,abs=0)=>isFinite(v)&&Math.abs(v-e)<=Math.max(Math.abs(e)*rel
 let refUid=1e6;
 const mkp=(type,a,b,x={})=>({id:refUid++,type,a,b,val:330,tol:5,e:0,color:'red',wcol:RED,burned:false,hot:false,...x});
 const FG0={on:false,wave:'sine',f:1,vpp:0,off:0};
-const loadParts=list=>{list.forEach(p=>{p.id=S.uid++;if(p.type==='R'&&!p.e)p.e=tolErr(p.tol);});S.parts=list;S.pending=null;lastVd.clear();hover(null,null);changed();};
+const loadParts=list=>{showGuide(null);list.forEach(p=>{p.id=S.uid++;if(p.type==='R'&&!p.e)p.e=tolErr(p.tol);});S.parts=list;S.pending=null;lastVd.clear();hover(null,null);changed();};
 const placedR=nom=>S.parts.filter(p=>p.type==='R'&&p.val===nom).map(act);
 
 function resSvg(val,tol){
@@ -889,7 +890,7 @@ const LAB2={
   <ol><li>電源供應器設為 <b>Vs = ${P.vs} V</b>,電流限制設 0.2 A,先不要開輸出。</li>
   <li>放一顆 <b>Rs = ${fmtOhm(P.rs)}</b>(誤差 ±5%)當作電源的輸出阻抗,Ri 接在它後面再回到電源 −。Ri 可以用兩顆電阻串接湊近指定值。</li>
   <li>開啟輸出。用三用電表量 Vs、Rs(Ω 檔要關閉電源)、Ri(Ω 檔)、Vi(並聯在 Ri 兩端)和 Ii(串聯進電路,用直流電流檔)。</li></ol>
-  ${FIG.l2()}<p><button type="button" data-act="ref">載入參考接線</button> <span class="muted">(放好 Rs 與 Ri,Ri 先設成和 Rs 一樣)</span></p>
+  ${FIG.l2()}<p><button type="button" data-act="ref">載入參考接線</button> <button type="button" data-act="guide">顯示接法</button> <span class="muted">(放好 Rs 與 Ri,Ri 先設成和 Rs 一樣)</span></p>
   <div class="row2"><label>Vs 實測 (V) ${IN('vs')}</label><label>Rs 實測 (Ω) ${IN('rs')}</label><span>Is = <b data-o="is">—</b> mA;Ps = <b data-o="ps">—</b> W</span></div>
   <div class="wrapx"><table class="ltbl"><thead><tr><th>Ri/Rs</th><th>Ri 理想值(Ω)</th><th>Ri 實測值(Ω)</th><th>Vi (V)</th><th>Ii (mA)</th><th>Vi/Vs</th><th>Ii/Is</th><th>Pi/Ps</th><th>理論值</th></tr></thead><tbody>
   ${RAT.map((r,i)=>`<tr><td>${r}</td><td>${f3(r*P.rs)}</td><td>${IN('ri'+i)}</td><td>${IN('vi'+i)}</td><td>${IN('ii'+i)}</td><td>${OUT('a'+i)}</td><td>${OUT('b'+i)}</td><td>${OUT('c'+i)}</td><td>${ANS('t'+i)}</td></tr>`).join('')}</tbody></table></div>
@@ -934,7 +935,7 @@ const LAB3={
   <p class="muted">目的:電阻網路的模擬、計算與量測;了解量測的準確度、誤差,以及儀器與元件都有誤差。</p>
   <h4>A. 電阻電路</h4>
   <p>電路:V1 = <b>${P.V} V</b>,R1 接 V+ 到 VF1;R2 從 VF1 到 VF2;R3 從 VF1 到 VF3;R4 接在 VF2、VF3 之間;R5 從 VF2 到 VF4;R6 從 VF3 到 VF4;R7 從 VF4 回到 V−。電阻值如下表。接好後依序量電阻、各點電壓和各電阻電流,功率用 P = I²R 計算。</p>
-  ${FIG.l3(P)}<p><button type="button" data-act="ref">載入參考接線</button> <span class="muted">(想自己練習接線的話不要按)</span></p>
+  ${FIG.l3(P)}<p><button type="button" data-act="ref">載入參考接線</button> <button type="button" data-act="guide">顯示接法</button> <span class="muted">(想自己練習接線的話不要按)</span></p>
   <div class="wrapx"><table class="ltbl"><thead><tr><th></th><th>設定值(Ω)</th><th>量測值(Ω)</th><th>電流模擬(mA)</th><th>電流量測(mA)</th><th>功率模擬(mW)</th><th>功率計算(mW)</th></tr></thead><tbody>
   ${P.R.map((r,i)=>`<tr><td>R${i+1}</td><td>${r}</td><td>${IN('r'+i)}</td><td>${ANS('si'+i)}</td><td>${IN('i'+i)}</td><td>${ANS('sp'+i)}</td><td>${OUT('p'+i)}</td></tr>`).join('')}</tbody></table></div>
   <div class="wrapx"><table class="ltbl"><thead><tr><th>節點</th><th>模擬值(V)</th><th>量測值(V)</th></tr></thead><tbody>
@@ -978,17 +979,17 @@ const LAB4={
   <h4>4-5-1 LED 特性量測(直流驅動)</h4>
   <ol><li>電源供應器設為 <b>5 V</b>、電流限制 0.1 A。</li><li>放一顆 <b>${LEDC[P.col].n}色 LED</b> 與下表的限流電阻 Rs 串聯,陽極接 Rs 那端。</li>
   <li>用電表量 LED 兩端的 Vf,填入表格。If、功率會自動計算。</li></ol>
-  ${FIG.l4a()}<p><button type="button" data-act="ref" data-arg="a">載入參考接線</button></p>
+  ${FIG.l4a()}<p><button type="button" data-act="ref" data-arg="a">載入參考接線</button> <button type="button" data-act="guide" data-arg="a">顯示接法</button></p>
   <div class="wrapx"><table class="ltbl"><thead><tr><th>Rs(Ω)</th><th>Vf 實測(V)</th><th>If (mA)</th><th>P_LED (mW)</th><th>P_Rs (mW)</th><th>模擬 Vf (V)</th></tr></thead><tbody>
   ${RS4.map((r,i)=>`<tr><td>${r}</td><td>${IN('vf'+i)}</td><td>${OUT('if'+i)}</td><td>${OUT('pl'+i)}</td><td>${OUT('pr'+i)}</td><td>${ANS('sv'+i)}</td></tr>`).join('')}</tbody></table></div>
   <canvas class="chart" id="chart4" aria-label="LED 的 Vf 對 If 關係圖"></canvas>
   <h4>4-5-2 半波整流</h4>
   <p>訊號產生器:<b>${WN[P.wave]}</b>、f = 1 Hz、Vpp = 10 V(偏移 0)。電路:訊號 → LED → R1(220 Ω)→ GND。示波器 CH1 量 VF1(LED 前),CH2 量 VF2(R1 上),把 T/div 調到看得到一個完整週期。</p>
-  ${FIG.l4b()}<p><button type="button" data-act="ref" data-arg="b">載入參考接線</button></p>
+  ${FIG.l4b()}<p><button type="button" data-act="ref" data-arg="b">載入參考接線</button> <button type="button" data-act="guide" data-arg="b">顯示接法</button></p>
   <p>VF2 峰對峰 = ${IN('b')} V <span class="muted">(從示波器螢幕讀)</span> 模擬值 ${ANS('sb')} <span data-o="cb"></span></p>
   <h4>4-5-3 兩顆 LED 反向並聯</h4>
   <p>訊號源設定同上,R1 換成 330 Ω,兩顆 LED 反向並聯。</p>
-  ${FIG.l4c()}<p><button type="button" data-act="ref" data-arg="c">載入參考接線</button></p>
+  ${FIG.l4c()}<p><button type="button" data-act="ref" data-arg="c">載入參考接線</button> <button type="button" data-act="guide" data-arg="c">顯示接法</button></p>
   <p>VF2 峰對峰 = ${IN('c')} V 模擬值 ${ANS('sc')} <span data-o="cc"></span></p>
   <p class="ans">說明:正弦波的電壓要超過 LED 導通電壓才會有電流,所以亮的時間比方波短;方波幾乎一半時間導通;三角波介於兩者之間。反向並聯時,正負半週各有一顆 LED 導通,所以兩半週都會亮。</p>`;},
   recalc(P){
@@ -1031,14 +1032,14 @@ const LAB5={
   <li>用 R1 = <b>${fmtOhm(P.r1)}</b>、R2 = <b>${fmtOhm(P.r2)}</b> 把 5 V 分壓,接到運算放大器 1 的負輸入(腳 2)當參考電壓 VR。</li>
   <li>訊號產生器設為正弦波、<b>f = ${P.f} Hz、Vpp = ${P.vpp} V、偏移 = ${P.off} V</b>,接到正輸入(腳 3)。</li>
   <li>輸出(腳 1)串聯 390 Ω 與 LED 到 GND。示波器 CH1 量輸入、CH2 量輸出,調整 T/div、V/div 與觸發,看到穩定的波形。</li></ol>
-  ${FIG.l5a(P)}<p><button type="button" data-act="ref" data-arg="a">載入參考接線</button></p>
+  ${FIG.l5a(P)}<p><button type="button" data-act="ref" data-arg="a">載入參考接線</button> <button type="button" data-act="guide" data-arg="a">顯示接法</button></p>
   <div class="row2"><label>VR 實測 (V) ${IN('vr')}</label><label>輸出高電位 (V) ${IN('hi')}</label><label>輸出低電位 (V) ${IN('lo')}</label><label>輸出為高電位的時間 (%) ${IN('du')}</label></div>
   <p class="ans">模擬值:VR ≈ ${f3(P.vref)} V;高電位 ${f3(P.hi)} V;低電位 ${f3(P.lo)} V;高電位時間約 ${f3(P.duty,3)} %。<span data-o="c1"></span></p>
   <h4>5.5.2 四段 LED 顯示</h4>
   <ol><li>5 個 10 kΩ 電阻從 +5 V 串到 GND,分出 1 V、2 V、3 V、4 V,分別接到四個比較器的負輸入。</li>
   <li>四個正輸入都接訊號產生器;每個輸出串聯 330 Ω 接 LED 到 GND。</li>
   <li>先把訊號產生器設成<b>振幅 0 V、偏移 ${P.lvl} V</b>(直流),觀察亮幾顆 LED。再改成三角波 0–5 V(Vpp 5、偏移 2.5)、1 Hz,用示波器比較輸入與各輸出。</li></ol>
-  ${FIG.l5b()}<p><button type="button" data-act="ref" data-arg="b">載入參考接線</button> <span class="muted">(這個電路零件很多,可以先載入再研究接線)</span></p>
+  ${FIG.l5b()}<p><button type="button" data-act="ref" data-arg="b">載入參考接線</button> <button type="button" data-act="guide" data-arg="b">顯示接法</button> <span class="muted">(這個電路零件很多,可以先載入再研究接線)</span></p>
   <p>偏移 ${P.lvl} V 時,亮的 LED 有 ${IN('lit')} 顆 <span class="ans">答案:${P.lit} 顆</span> <span data-o="c2"></span></p>
   <p class="muted">討論:輸入電壓升高時,亮燈數為何會增加?輸出高電位為什麼不是 5 V?</p>`;},
   recalc(P){
@@ -1066,7 +1067,7 @@ function renderLab(){
 }
 function showFigs(){const fp=$('figpanel');fp.textContent='';labbody.querySelectorAll('figure.fig').forEach(f=>fp.appendChild(f));$('figwrap').hidden=!fp.children.length;}
 function newLab(clear){
-  const n=LAB.cur;if(n===0)return;
+  showGuide(null);const n=LAB.cur;if(n===0)return;
   LAB.P=LABS[n].gen();
   if(clear){S.parts=[];S.pending=null;lastVd.clear();S.ps.on=false;S.fg.on=false;syncPS();syncFG();changed();}
   renderLab();
@@ -1074,12 +1075,35 @@ function newLab(clear){
 labbody.addEventListener('input',()=>{if(LAB.cur)LABS[LAB.cur].recalc(LAB.P);});
 labbody.addEventListener('change',()=>{if(LAB.cur)LABS[LAB.cur].recalc(LAB.P);});
 labbody.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||!LAB.cur)return;const L=LABS[LAB.cur],a=b.dataset.act;
-  if(a==='ref'){const list=L.ref(LAB.P,b.dataset.arg);loadParts(list);say('已放好參考接線。儀器設定還是要自己調。');}
+  if(a==='guide'){const list=L.ref(LAB.P,b.dataset.arg);list.forEach(p=>{p.id=refUid++;});showGuide(list);say('接法已用半透明方式疊在麵包板上,下方列出每一條接線。');}
+  else if(a==='ref'){const list=L.ref(LAB.P,b.dataset.arg);loadParts(list);say('已放好參考接線。儀器設定還是要自己調。');}
   else L.act&&L.act(a,LAB.P);});
 bind('labsel','change',e=>{LAB.cur=+e.target.value;newLab(true);if(LAB.cur===0)renderLab();});
-bind('labnew','click',()=>newLab(true));
+bind('labnew','click',()=>newLab(true));bind('guideoff','click',()=>showGuide(null));
 bind('labans','click',()=>{const on=!labbody.classList.contains('show-ans');labbody.classList.toggle('show-ans',on);setPressed($('labans'),on);if(LAB.cur)LABS[LAB.cur].recalc(LAB.P);});
 LAB.onChange=()=>{if(LAB.cur===1)LABS[1].recalc(LAB.P);};
+
+
+/* ---------- 接線提示(半透明疊在麵包板上) ---------- */
+const TNAME={'PS+':'電源供應器 +','PS-':'電源供應器 −',FGO:'訊號產生器 OUT',FGG:'訊號產生器 GND',CH1:'示波器 CH1',CH2:'示波器 CH2',SCG:'示波器 GND',MC:'電表 COM',MV:'電表 V/Ω/mA'};
+function pname(id){
+  if(TNAME[id])return TNAME[id];
+  let m=/^([TB])(\d+)_(\d)$/.exec(id);if(m)return `第 ${m[2]} 欄${m[1]==='T'?'上':'下'}半第 ${+m[3]+1} 列`;
+  m=/^R([UL])([+-])_(\d+)$/.exec(id);if(m)return `${m[1]==='U'?'上':'下'}方電源軌 ${m[2]==='+'?'+':'−'} 第 ${+m[3]+1} 孔`;
+  return id;
+}
+function describe(p){
+  if(p.type==='W')return `跳線:${pname(p.a)} → ${pname(p.b)}`;
+  if(p.type==='R')return `電阻 ${fmtOhm(p.val)}:${pname(p.a)} 到 ${pname(p.b)}`;
+  if(p.type==='LED')return `${LEDC[p.color].n}色 LED:陽極(+)${pname(p.a)},陰極(−)${pname(p.b)}`;
+  return `LM324:缺口朝左,第 1 腳放在第 ${p.col} 欄下排,第 14 腳在同一欄上排`;
+}
+function showGuide(list){
+  guide=list;gGuide.textContent='';
+  if(list){list.filter(p=>p.type!=='W').forEach(p=>drawPart(p,gGuide));list.filter(p=>p.type==='W').forEach(p=>drawPart(p,gGuide));}
+  const box=$('guidebox');box.hidden=!list;
+  $('guidelist').innerHTML=list?list.map(p=>`<li>${describe(p)}</li>`).join(''):'';
+}
 
 /* ---------- 範例電路(只放電路) ---------- */
 const add=(type,a,b,x={})=>S.parts.push(newPart(type,a,b,x));
@@ -1101,7 +1125,7 @@ function loadPreset(i){S.parts=[];S.pending=null;lastVd.clear();PRESETS[i].f();h
   if(LAB.cur!==0){LAB.cur=0;$('labsel').value=0;renderLab();}
   $('freetip').textContent='範例「'+PRESETS[i].n+'」:'+PRESETS[i].tip;say('已放好範例電路:'+PRESETS[i].n+'。儀器要自己調整。');}
 bind('preset','change',e=>{if(e.target.value!=='')loadPreset(+e.target.value);e.target.value='';});
-bind('clear','click',()=>{S.parts=[];S.pending=null;lastVd.clear();hover(null,null);changed();hint();});
+bind('clear','click',()=>{showGuide(null);S.parts=[];S.pending=null;lastVd.clear();hover(null,null);changed();hint();});
 
 /* ---------- 初始化 ---------- */
 function syncAll(){syncPS();syncFG();
